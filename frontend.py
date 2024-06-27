@@ -56,7 +56,7 @@ def load_config():
         st.error(f"Error retrieving configuration: {str(e)}")
         return {}
 
-st.title("Document Query Tool")
+st.title("Plugin.io - Chat your documents!")
 
 # Sidebar for configuration display
 st.sidebar.header("Configuration")
