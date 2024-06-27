@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+pydantic
+langchain
+numpy
+faiss-cpu
+ollama
+PyPDF2
+python-multipart
+chardet
+pandas
