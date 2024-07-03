@@ -11,7 +11,6 @@ import pickle
 from PyPDF2 import PdfReader
 import json
 import csv
-import io
 import chardet
 import pandas as pd
 

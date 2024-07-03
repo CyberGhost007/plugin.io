@@ -2,7 +2,7 @@
 
 set -e
 
-echo "Starting automated setup for Document Query Tool with Streamlit frontend..."
+echo "Starting automated setup for FloatStream.io with Streamlit frontend..."
 
 # Function to detect OS and package manager
 detect_os() {
@@ -54,6 +54,12 @@ install_packages() {
 # Install necessary packages
 echo "Installing system dependencies..."
 install_packages
+
+# Cleanup section: Remove all saved files and data
+echo "Cleaning up old data and files..."
+rm -rf data
+rm -f faiss_hnsw_index.bin
+rm -f documents.pkl
 
 # Install Ollama
 echo "Installing Ollama..."

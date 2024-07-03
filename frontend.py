@@ -2,123 +2,133 @@ import streamlit as st
 import requests
 import json
 import os
+import plotly.express as px
+import pandas as pd
 
-BASE_URL = "http://localhost:8000"
+# Constants
+API_URL = "http://localhost:8000"
 
-def index_document(file):
+# Function to query the backend
+def query_backend(endpoint, method="GET", data=None, files=None):
+    url = f"{API_URL}/{endpoint}"
+    headers = {"Content-Type": "application/json"}
     try:
-        files = {"file": (file.name, file.getvalue(), file.type)}
+        if method == "GET":
+            response = requests.get(url, headers=headers)
+        elif method == "POST":
+            if files:
+                response = requests.post(url, files=files)
+            else:
+                response = requests.post(url, headers=headers, data=json.dumps(data))
+        elif method == "DELETE":
+            response = requests.delete(url, headers=headers)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        st.error(f"An error occurred: {e}")
+        return None
+
+# App title and description
+st.set_page_config(page_title="FloatStream.io", layout="wide", page_icon="⛵")
+st.title("⛵ FloatStream.io")
+
+# Sidebar navigation
+st.sidebar.title("Navigation")
+page = st.sidebar.radio("Go to", ["Home", "Upload Document", "Query Document", "Manage Embeddings"])
+
+if page == "Home":
+    st.markdown("""
+        This application offers a comprehensive solution for managing and querying your documents. Here’s what you can do:
+        - **Upload Documents**: Upload documents in various formats (PDF, TXT, CSV).
+        - **Index and Embed**: Automatically index and embed documents for efficient querying.
+        - **Search and Query**: Query the indexed documents to find relevant information.
+        - **Manage Embeddings**: Manage the stored embeddings, including the ability to delete all embeddings.
+
+        Use the navigation menu on the left to get started.
+    """)
+
+    st.markdown("### Key Features")
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.markdown("📤 **Upload Documents**")
+        st.markdown("""
+            - PDF, TXT, CSV
+            - Automatic Text Extraction
+        """)
+
+    with col2:
+        st.markdown("🔎 **Query Documents**")
+        st.markdown("""
+            - Efficient Search
+            - Contextual Results
+        """)
+
+    with col3:
+        st.markdown("🎯 **Manage Embeddings**")
+        st.markdown("""
+            - Persistent Storage
+            - Easy Management
+        """)
+
+    # st.markdown("### How It Works")
+    # st.video("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+
+elif page == "Upload Document":
+    st.header("Upload Document")
+    st.markdown("Upload a document to be indexed and embedded.")
+    uploaded_file = st.file_uploader("Choose a file", type=["pdf", "txt", "csv", "md"])
+    
+    if uploaded_file is not None:
         with st.spinner("Indexing document..."):
-            response = requests.post(f"{BASE_URL}/index", files=files)
-        response.raise_for_status()
-        return response.json()
-    except requests.RequestException as e:
-        st.error(f"Error during indexing: {str(e)}")
-        st.error(f"Response content: {e.response.content if e.response else 'No response'}")
-        return None
+            files = {"file": uploaded_file.getvalue()}
+            response = query_backend("index", method="POST", files={"file": (uploaded_file.name, uploaded_file, uploaded_file.type)})
+            if response:
+                st.success(f"Document '{uploaded_file.name}' indexed successfully!")
 
-def query_document(query, original_answer=None):
-    try:
-        data = {"query": query, "original_answer": original_answer}
-        response = requests.post(f"{BASE_URL}/query", json=data)
-        response.raise_for_status()
-        return response.json()
-    except requests.RequestException as e:
-        st.error(f"Error during querying: {str(e)}")
-        st.error(f"Response content: {e.response.content if e.response else 'No response'}")
-        return None
+elif page == "Query Document":
+    st.header("Query Document")
+    st.markdown("Enter a query to search the indexed documents.")
 
-def delete_all_embeddings():
-    try:
-        response = requests.delete(f"{BASE_URL}/delete_all")
-        response.raise_for_status()
-        return response.json()
-    except requests.RequestException as e:
-        st.error(f"Error during deletion: {str(e)}")
-        st.error(f"Response content: {e.response.content if e.response else 'No response'}")
-        return None
+    query_text = st.text_area("Enter your query:")
+    original_answer = st.text_area("Optional: Provide your original answer for similarity comparison (Leave empty if not needed):")
 
-def get_indexed_documents():
-    try:
-        response = requests.get(f"{BASE_URL}/indexed_documents")
-        response.raise_for_status()
-        return response.json()
-    except requests.RequestException as e:
-        st.error(f"Error retrieving indexed documents: {str(e)}")
-        return []
+    if st.button("Submit Query"):
+        if query_text:
+            with st.spinner("Searching documents..."):
+                data = {"query": query_text, "original_answer": original_answer}
+                response = query_backend("query", method="POST", data=data)
+                if response:
+                    st.success("Query processed successfully!")
+                    st.markdown("### Generated Answer")
+                    st.write(response.get("generated_answer", "No answer generated."))
 
-def load_config():
-    try:
-        response = requests.get(f"{BASE_URL}/config")
-        response.raise_for_status()
-        return response.json()
-    except requests.RequestException as e:
-        st.error(f"Error retrieving configuration: {str(e)}")
-        return {}
+                    st.markdown("### Relevant Documents")
+                    for i, doc in enumerate(response.get("relevant_documents", [])):
+                        with st.expander(f"Document {i+1} (Score: {doc['score']})"):
+                            st.write(doc['content'])
 
-st.title("FloatStream.io - Chat your documents!")
+                    if "similarity_score" in response:
+                        st.write(f"**Similarity Score:** {response['similarity_score']}")
+        else:
+            st.error("Please enter a query.")
 
-# Sidebar for configuration display
-st.sidebar.header("Configuration")
-config = load_config()
-st.sidebar.subheader("Model Configuration")
-st.sidebar.json(config)
-
-st.sidebar.subheader("System Information")
-st.sidebar.text(f"Backend URL: {BASE_URL}")
-try:
-    response = requests.get(f"{BASE_URL}/health")
-    st.sidebar.text(f"Backend status: {'Online' if response.status_code == 200 else 'Offline'}")
-except requests.RequestException:
-    st.sidebar.text("Backend status: Offline or unreachable")
-
-# Main content
-st.header("Upload and Index Documents")
-uploaded_file = st.file_uploader("Choose a file to index", type=["pdf", "txt", "csv"])
-if uploaded_file is not None:
-    if st.button("Index Document"):
-        result = index_document(uploaded_file)
-        if result:
-            st.success(result["message"])
-
-# Display indexed documents in a collapsible view
-with st.expander("View Indexed Documents", expanded=False):
-    st.subheader("Indexed Documents")
-    indexed_docs = get_indexed_documents()
-    if indexed_docs:
-        for doc in indexed_docs:
-            st.text(f"- {doc}")
-    else:
-        st.text("No documents indexed yet.")
-
-st.header("Query Documents")
-query = st.text_input("Enter your query")
-use_original_answer = st.checkbox("Compare with original answer")
-original_answer = st.text_area("Enter the original answer (optional)") if use_original_answer else None
-
-if st.button("Submit Query"):
-    if query:
-        with st.spinner("Processing query..."):
-            result = query_document(query, original_answer)
-        if result:
-            st.subheader("Generated Answer")
-            st.write(result["generated_answer"])
-            
-            if use_original_answer and "similarity_score" in result:
-                st.subheader("Similarity Score")
-                st.write(result["similarity_score"])
-            
-            st.subheader("Relevant Documents")
-            for doc in result["relevant_documents"]:
-                st.write(f"Content: {doc['content'][:100]}...")
-                st.write(f"Score: {doc['score']}")
-                st.write("---")
-    else:
-        st.warning("Please enter a query.")
-
-if st.button("Delete All Embeddings"):
-    if st.button("Confirm Deletion"):
+elif page == "Manage Embeddings":
+    st.header("Manage Embeddings")
+    st.markdown("Manage the document embeddings.")
+    
+    if st.button("Delete All Embeddings"):
         with st.spinner("Deleting all embeddings..."):
-            result = delete_all_embeddings()
-        if result:
-            st.success(result["message"])
+            response = query_backend("delete_all", method="DELETE")
+            if response:
+                st.success("All embeddings have been deleted successfully!")
+
+st.sidebar.markdown("### Configuration")
+config = query_backend("config")
+if config:
+    st.sidebar.json(config)
+
+st.sidebar.markdown("### Indexed Documents")
+indexed_documents = query_backend("indexed_documents")
+if indexed_documents:
+    st.sidebar.write(indexed_documents)
