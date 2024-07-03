@@ -24,8 +24,9 @@ with open('data/config.json', 'r') as config_file:
     config = json.load(config_file)
 
 class PersistentEmbeddingDatabase:
-    def __init__(self, model_name: str = config['model_name'], index_file: str = config['index_file'], docs_file: str = config['docs_file']):
+    def __init__(self, model_name: str = config['model_name'], embedding_model_name: str = config['embedding_model_name'],  index_file: str = config['index_file'], docs_file: str = config['docs_file']):
         self.model_name = model_name
+        self.embedding_model_name = embedding_model_name
         self.index_file = os.path.join('data', index_file)
         self.docs_file = os.path.join('data', docs_file)
         self.documents = []
@@ -67,7 +68,7 @@ class PersistentEmbeddingDatabase:
     def add_documents(self, documents: List[str]):
         all_embeddings = []
         for doc in documents:
-            embedding_response = ollama.embeddings(model=self.model_name, prompt=doc)
+            embedding_response = ollama.embeddings(model=self.embedding_model_name, prompt=doc)
             embedding = np.array(embedding_response['embedding']).astype('float32')
             embedding = embedding / np.linalg.norm(embedding)
             all_embeddings.append(embedding)
@@ -85,7 +86,7 @@ class PersistentEmbeddingDatabase:
         self.save_index()
 
     def search(self, query: str, k: int = config['search_k'], ef_search: int = config['ef_search']):
-        query_embedding_response = ollama.embeddings(model=self.model_name, prompt=query)
+        query_embedding_response = ollama.embeddings(model=self.embedding_model_name, prompt=query)
         query_embedding = np.array(query_embedding_response['embedding']).astype('float32')
         query_embedding = query_embedding / np.linalg.norm(query_embedding)
         
@@ -249,8 +250,8 @@ async def query_document(query: Query):
         }
 
         if query.original_answer:
-            original_embedding = np.array(ollama.embeddings(model=db.model_name, prompt=query.original_answer)['embedding'])
-            generated_embedding = np.array(ollama.embeddings(model=db.model_name, prompt=generated_answer)['embedding'])
+            original_embedding = np.array(ollama.embeddings(model=db.embedding_model_name, prompt=query.original_answer)['embedding'])
+            generated_embedding = np.array(ollama.embeddings(model=db.embedding_model_name, prompt=generated_answer)['embedding'])
             similarity_score = calculate_cosine_similarity(original_embedding, generated_embedding)
             result["similarity_score"] = similarity_score
         

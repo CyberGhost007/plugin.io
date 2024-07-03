@@ -1,5 +1,6 @@
 {
-    "model_name": "dolphin-llama3",
+    "model_name": "gemma2",
+    "embedding_model_name": "mxbai-embed-large",
     "chunk_size": 1000,
     "chunk_overlap": 100,
     "search_k": 5,
