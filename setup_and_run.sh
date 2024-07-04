@@ -130,7 +130,7 @@ if [ ! -f "config.json" ]; then
     "embedding_model_name": "mxbai-embed-large",
     "chunk_size": 1000,
     "chunk_overlap": 100,
-    "search_k": 5,
+    "search_k": 2,
     "ef_search": 50,
     "index_file": "faiss_hnsw_index.bin",
     "docs_file": "documents.pkl"
