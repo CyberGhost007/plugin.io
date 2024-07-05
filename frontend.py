@@ -3,6 +3,7 @@ import requests
 import json
 import pandas as pd
 import plotly.express as px
+import os
 
 API_URL = "http://localhost:8000"
 
@@ -64,7 +65,8 @@ def home_page():
     """)
 
     st.markdown("### How It Works")
-    st.image("https://images.unsplash.com/photo-1639322537138-5e513100b36e?q=80&w=2832&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D", caption="FloatStream.io Workflow")
+    image_path = os.path.join("assets", "arc.png")
+    st.image(image_path, caption="FloatStream.io Workflow", use_column_width=True)
 
 def upload_page():
     st.header("Upload Documents")
