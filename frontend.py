@@ -1,14 +1,11 @@
 import streamlit as st
 import requests
 import json
-import os
-import plotly.express as px
 import pandas as pd
+import plotly.express as px
 
-# Constants
 API_URL = "http://localhost:8000"
 
-# Function to query the backend
 def query_backend(endpoint, method="GET", data=None, files=None):
     url = f"{API_URL}/{endpoint}"
     headers = {"Content-Type": "application/json"}
@@ -19,7 +16,7 @@ def query_backend(endpoint, method="GET", data=None, files=None):
             if files:
                 response = requests.post(url, files=files)
             else:
-                response = requests.post(url, headers=headers, data=json.dumps(data))
+                response = requests.post(url, headers=headers, json=data)
         elif method == "DELETE":
             response = requests.delete(url, headers=headers)
         response.raise_for_status()
@@ -28,70 +25,73 @@ def query_backend(endpoint, method="GET", data=None, files=None):
         st.error(f"An error occurred: {e}")
         return None
 
-# App title and description
-st.set_page_config(page_title="FloatStream.io", layout="wide", page_icon="⛵")
-st.title("⛵ FloatStream.io")
+def main():
+    st.set_page_config(page_title="FloatStream.io", layout="wide", page_icon="⛵")
+    st.title("⛵ FloatStream.io")
 
-# Sidebar navigation
-st.sidebar.title("Navigation")
-page = st.sidebar.radio("Go to", ["Home", "Upload Document", "Query Document", "Manage Embeddings"])
+    pages = {
+        "Home": home_page,
+        "Upload Documents": upload_page,
+        "Query Documents": query_page,
+        "Manage Embeddings": manage_page
+    }
 
-if page == "Home":
+    st.sidebar.title("Navigation")
+    page = st.sidebar.radio("Go to", list(pages.keys()))
+
+    pages[page]()
+
+    st.sidebar.markdown("### Configuration")
+    config = query_backend("config")
+    if config:
+        st.sidebar.json(config)
+
+    st.sidebar.markdown("### Indexed Documents")
+    indexed_documents = query_backend("indexed_documents")
+    if indexed_documents:
+        st.sidebar.write(indexed_documents)
+
+def home_page():
     st.markdown("""
-        This application offers a comprehensive solution for managing and querying your documents. Here’s what you can do:
-        - **Upload Documents**: Upload documents in various formats (PDF, TXT, CSV).
-        - **Index and Embed**: Automatically index and embed documents for efficient querying.
-        - **Search and Query**: Query the indexed documents to find relevant information.
-        - **Manage Embeddings**: Manage the stored embeddings, including the ability to delete all embeddings.
+        Welcome to FloatStream.io, your comprehensive solution for document management and querying.
+
+        ### Key Features:
+        - 📤 **Upload Documents**: Support for PDF, TXT, CSV, and MD files.
+        - 🔎 **Query Documents**: Efficient search with contextual results.
+        - 🎯 **Manage Embeddings**: Easy management of indexed documents.
 
         Use the navigation menu on the left to get started.
     """)
 
-    st.markdown("### Key Features")
-    col1, col2, col3 = st.columns(3)
+    st.markdown("### How It Works")
+    st.image("https://images.unsplash.com/photo-1639322537138-5e513100b36e?q=80&w=2832&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D", caption="FloatStream.io Workflow")
 
-    with col1:
-        st.markdown("📤 **Upload Documents**")
-        st.markdown("""
-            - PDF, TXT, CSV
-            - Automatic Text Extraction
-        """)
-
-    with col2:
-        st.markdown("🔎 **Query Documents**")
-        st.markdown("""
-            - Efficient Search
-            - Contextual Results
-        """)
-
-    with col3:
-        st.markdown("🎯 **Manage Embeddings**")
-        st.markdown("""
-            - Persistent Storage
-            - Easy Management
-        """)
-
-    # st.markdown("### How It Works")
-    # st.video("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
-
-elif page == "Upload Document":
-    st.header("Upload Document")
-    st.markdown("Upload a document to be indexed and embedded.")
-    uploaded_file = st.file_uploader("Choose a file", type=["pdf", "txt", "csv", "md"])
+def upload_page():
+    st.header("Upload Documents")
+    st.markdown("Upload one or more documents to be indexed and embedded.")
     
-    if uploaded_file is not None:
-        with st.spinner("Indexing document..."):
-            files = {"file": uploaded_file.getvalue()}
-            response = query_backend("index", method="POST", files={"file": (uploaded_file.name, uploaded_file, uploaded_file.type)})
-            if response:
-                st.success(f"Document '{uploaded_file.name}' indexed successfully!")
+    uploaded_files = st.file_uploader("Choose files", type=["pdf", "txt", "csv", "md"], accept_multiple_files=True)
+    
+    if uploaded_files:
+        if st.button("Index Selected Documents"):
+            progress_bar = st.progress(0)
+            for i, file in enumerate(uploaded_files):
+                with st.spinner(f"Indexing {file.name}..."):
+                    files = {"file": (file.name, file.getvalue(), file.type)}
+                    response = query_backend("index", method="POST", files=files)
+                    if response:
+                        st.success(f"Document '{file.name}' indexed successfully!")
+                    else:
+                        st.error(f"Failed to index document '{file.name}'")
+                progress_bar.progress((i + 1) / len(uploaded_files))
+            st.success("All documents have been processed!")
 
-elif page == "Query Document":
-    st.header("Query Document")
+def query_page():
+    st.header("Query Documents")
     st.markdown("Enter a query to search the indexed documents.")
 
     query_text = st.text_area("Enter your query:")
-    original_answer = st.text_area("Optional: Provide your original answer for similarity comparison (Leave empty if not needed):")
+    original_answer = st.text_area("Optional: Provide your original answer for similarity comparison")
 
     if st.button("Submit Query"):
         if query_text:
@@ -105,30 +105,39 @@ elif page == "Query Document":
 
                     st.markdown("### Relevant Documents")
                     for i, doc in enumerate(response.get("relevant_documents", [])):
-                        with st.expander(f"Document {i+1} (Score: {doc['score']})"):
+                        with st.expander(f"Document {i+1} (Score: {doc['score']:.4f})"):
                             st.write(doc['content'])
 
                     if "similarity_score" in response:
-                        st.write(f"**Similarity Score:** {response['similarity_score']}")
+                        st.write(f"**Similarity Score:** {response['similarity_score']:.4f}")
+
+                    # Visualize document relevance
+                    if response.get("relevant_documents"):
+                        df = pd.DataFrame(response["relevant_documents"])
+                        fig = px.bar(df, x=df.index, y="score", labels={"index": "Document", "score": "Relevance Score"})
+                        st.plotly_chart(fig)
         else:
             st.error("Please enter a query.")
 
-elif page == "Manage Embeddings":
+def manage_page():
     st.header("Manage Embeddings")
-    st.markdown("Manage the document embeddings.")
+    st.markdown("Manage your document embeddings.")
     
     if st.button("Delete All Embeddings"):
-        with st.spinner("Deleting all embeddings..."):
-            response = query_backend("delete_all", method="DELETE")
-            if response:
-                st.success("All embeddings have been deleted successfully!")
+        if st.checkbox("I understand this action cannot be undone"):
+            with st.spinner("Deleting all embeddings..."):
+                response = query_backend("delete_all", method="DELETE")
+                if response:
+                    st.success("All embeddings have been deleted successfully!")
+        else:
+            st.warning("Please confirm that you understand the consequences of this action.")
 
-st.sidebar.markdown("### Configuration")
-config = query_backend("config")
-if config:
-    st.sidebar.json(config)
+    st.markdown("### Embedding Statistics")
+    stats = query_backend("embedding_stats")
+    if stats:
+        st.write(f"Total documents: {stats['total_documents']}")
+        st.write(f"Total embeddings: {stats['total_embeddings']}")
+        st.write(f"Average embeddings per document: {stats['avg_embeddings_per_doc']:.2f}")
 
-st.sidebar.markdown("### Indexed Documents")
-indexed_documents = query_backend("indexed_documents")
-if indexed_documents:
-    st.sidebar.write(indexed_documents)
+if __name__ == "__main__":
+    main()

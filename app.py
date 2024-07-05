@@ -2,6 +2,7 @@ import os
 import logging
 from typing import List, Optional
 from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 import numpy as np
@@ -10,21 +11,31 @@ import ollama
 import pickle
 from PyPDF2 import PdfReader
 import json
-import csv
 import chardet
 import pandas as pd
 
+# Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+# Initialize FastAPI app
 app = FastAPI()
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Load configuration
 with open('data/config.json', 'r') as config_file:
     config = json.load(config_file)
 
 class PersistentEmbeddingDatabase:
-    def __init__(self, model_name: str = config['model_name'], embedding_model_name: str = config['embedding_model_name'],  index_file: str = config['index_file'], docs_file: str = config['docs_file']):
+    def __init__(self, model_name: str, embedding_model_name: str, index_file: str, docs_file: str):
         self.model_name = model_name
         self.embedding_model_name = embedding_model_name
         self.index_file = os.path.join('data', index_file)
@@ -41,8 +52,8 @@ class PersistentEmbeddingDatabase:
             logger.info("No existing index found. A new one will be created when documents are added.")
 
     def create_new_index(self, dimension):
-        M = 16
-        ef_construction = 200
+        M = 16  # Number of connections per layer
+        ef_construction = 200  # Controls index quality and build time trade-off
         self.index = faiss.IndexHNSWFlat(dimension, M, faiss.METRIC_INNER_PRODUCT)
         self.index.hnsw.efConstruction = ef_construction
         self.index.hnsw.efSearch = config['ef_search']
@@ -85,7 +96,7 @@ class PersistentEmbeddingDatabase:
         self.documents.extend(documents)
         self.save_index()
 
-    def search(self, query: str, k: int = config['search_k'], ef_search: int = config['ef_search']):
+    def search(self, query: str, k: int = config['search_k']):
         query_embedding_response = ollama.embeddings(model=self.embedding_model_name, prompt=query)
         query_embedding = np.array(query_embedding_response['embedding']).astype('float32')
         query_embedding = query_embedding / np.linalg.norm(query_embedding)
@@ -93,7 +104,7 @@ class PersistentEmbeddingDatabase:
         if query_embedding.shape[0] != self.dimension:
             raise ValueError(f"Query embedding dimension {query_embedding.shape[0]} does not match index dimension {self.dimension}")
         
-        self.index.hnsw.efSearch = ef_search
+        self.index.hnsw.efSearch = config['ef_search']
         scores, indices = self.index.search(query_embedding.reshape(1, -1), k)
         
         results = []
@@ -112,9 +123,21 @@ class PersistentEmbeddingDatabase:
         else:
             logger.warning("No index to delete")
 
-db = PersistentEmbeddingDatabase(index_file=config['index_file'], docs_file=config['docs_file'])
+    def get_stats(self):
+        return {
+            "total_documents": len(self.documents),
+            "total_embeddings": self.index.ntotal if self.index else 0,
+            "avg_embeddings_per_doc": self.index.ntotal / len(self.documents) if self.documents else 0
+        }
 
-def load_document(file_path: str):
+db = PersistentEmbeddingDatabase(
+    model_name=config['model_name'],
+    embedding_model_name=config['embedding_model_name'],
+    index_file=config['index_file'],
+    docs_file=config['docs_file']
+)
+
+def load_document(file_path: str) -> List[str]:
     _, file_extension = os.path.splitext(file_path)
     
     if file_extension.lower() == '.pdf':
@@ -126,7 +149,7 @@ def load_document(file_path: str):
     else:
         raise ValueError(f"Unsupported file format: {file_extension}")
 
-def load_pdf_document(file_path: str):
+def load_pdf_document(file_path: str) -> List[str]:
     with open(file_path, 'rb') as file:
         pdf_reader = PdfReader(file)
         text = ""
@@ -135,14 +158,13 @@ def load_pdf_document(file_path: str):
     
     return split_text(text)
 
-def load_text_document(file_path: str):
+def load_text_document(file_path: str) -> List[str]:
     with open(file_path, 'r', encoding='utf-8') as file:
         content = file.read()
     
     return split_text(content)
 
-def load_csv_document(file_path: str):
-    # Detect the file encoding
+def load_csv_document(file_path: str) -> List[str]:
     with open(file_path, 'rb') as file:
         raw_data = file.read()
         result = chardet.detect(raw_data)
@@ -151,31 +173,21 @@ def load_csv_document(file_path: str):
     logger.info(f"Detected encoding: {encoding}")
 
     try:
-        # Use pandas to read the CSV file
         df = pd.read_csv(file_path, encoding=encoding)
     except UnicodeDecodeError:
         logger.warning(f"Failed to decode with {encoding}, falling back to ISO-8859-1")
         df = pd.read_csv(file_path, encoding='ISO-8859-1')
 
-    # Convert DataFrame to a list of dictionaries
     records = df.to_dict('records')
-
-    # Create a list to store the processed content
     processed_content = []
 
-    # Process each row
     for record in records:
-        row_content = ""
-        for column, value in record.items():
-            row_content += f"{column}: {value}\n"
-        processed_content.append(row_content.strip())
+        row_content = "\n".join([f"{column}: {value}" for column, value in record.items()])
+        processed_content.append(row_content)
 
-    # Join all processed content
-    full_content = "\n\n".join(processed_content)
-    
-    return split_text(full_content)
+    return split_text("\n\n".join(processed_content))
 
-def split_text(text: str):
+def split_text(text: str) -> List[str]:
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=config['chunk_size'],
         chunk_overlap=config['chunk_overlap'],
@@ -216,7 +228,7 @@ async def index_document(file: UploadFile = File(...)):
 @app.post("/query")
 async def query_document(query: Query):
     try:
-        results = db.search(query.query, k=config['search_k'], ef_search=config['ef_search'])
+        results = db.search(query.query, k=config['search_k'])
         
         if not results:
             return {"message": "No relevant documents found."}
@@ -279,7 +291,11 @@ async def get_config():
 
 @app.get("/indexed_documents")
 async def get_indexed_documents():
-    return [os.path.basename(doc) for doc in db.documents]
+    return {"documents": [doc[:100] + "..." if len(doc) > 100 else doc for doc in db.documents]}
+
+@app.get("/embedding_stats")
+async def get_embedding_stats():
+    return db.get_stats()
 
 if __name__ == "__main__":
     import uvicorn

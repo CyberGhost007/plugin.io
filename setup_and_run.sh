@@ -126,11 +126,11 @@ if [ ! -f "config.json" ]; then
     echo "config.json not found. Creating a sample configuration..."
     cat > config.json << EOL
 {
-    "model_name": "gemma2",
+    "model_name": "qwen2",
     "embedding_model_name": "mxbai-embed-large",
     "chunk_size": 1000,
     "chunk_overlap": 100,
-    "search_k": 2,
+    "search_k": 5,
     "ef_search": 50,
     "index_file": "faiss_hnsw_index.bin",
     "docs_file": "documents.pkl"
@@ -145,7 +145,7 @@ cp config.json data/config.json
 
 # Download the Ollama model
 echo "Downloading the Ollama model (this may take a while)..."
-ollama pull gemma2
+ollama pull qwen2
 ollama pull mxbai-embed-large
 
 # Check if app.py exists
