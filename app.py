@@ -1,6 +1,6 @@
 import os
 import logging
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -10,13 +10,51 @@ import faiss
 import ollama
 import pickle
 from PyPDF2 import PdfReader
-import json
 import chardet
 import pandas as pd
+import json
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+# Configuration management
+class Config:
+    def __init__(self, config_path: str = 'config'):
+        self.config_path = config_path
+        self.config: Dict[str, Any] = {}
+        self.load_config()
+
+    def load_config(self):
+        env = os.getenv('ENVIRONMENT', 'development')
+        config_file = f'{self.config_path}/{env}.json'
+        
+        try:
+            with open(config_file, 'r') as f:
+                self.config = json.load(f)
+        except FileNotFoundError:
+            logger.warning(f"Configuration file not found: {config_file}. Using default configuration.")
+            self.config = self.default_config()
+        except json.JSONDecodeError:
+            logger.error(f"Invalid JSON in configuration file: {config_file}. Using default configuration.")
+            self.config = self.default_config()
+
+    def default_config(self):
+        return {
+            "model_name": "qwen2",
+            "embedding_model_name": "mxbai-embed-large",
+            "chunk_size": 2000,
+            "chunk_overlap": 200,
+            "search_k": 20,
+            "ef_search": 100,
+            "index_file": "faiss_hnsw_index.bin",
+            "docs_file": "documents.pkl"
+        }
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return self.config.get(key, default)
+
+config = Config()
 
 # Initialize FastAPI app
 app = FastAPI()
@@ -30,9 +68,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Load configuration
-with open('data/config.json', 'r') as config_file:
-    config = json.load(config_file)
+def calculate_cosine_similarity(vec1: np.ndarray, vec2: np.ndarray) -> float:
+    return float(np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2)))
 
 class PersistentEmbeddingDatabase:
     def __init__(self, model_name: str, embedding_model_name: str, index_file: str, docs_file: str):
@@ -56,7 +93,7 @@ class PersistentEmbeddingDatabase:
         ef_construction = 200  # Controls index quality and build time trade-off
         self.index = faiss.IndexHNSWFlat(dimension, M, faiss.METRIC_INNER_PRODUCT)
         self.index.hnsw.efConstruction = ef_construction
-        self.index.hnsw.efSearch = config['ef_search']
+        self.index.hnsw.efSearch = config.get('ef_search', 50)
         self.dimension = dimension
         logger.info(f"Created new HNSW index with dimension {dimension}")
 
@@ -96,7 +133,7 @@ class PersistentEmbeddingDatabase:
         self.documents.extend(documents)
         self.save_index()
 
-    def search(self, query: str, k: int = config['search_k']):
+    def search(self, query: str, k: int = config.get('search_k', 10)):
         query_embedding_response = ollama.embeddings(model=self.embedding_model_name, prompt=query)
         query_embedding = np.array(query_embedding_response['embedding']).astype('float32')
         query_embedding = query_embedding / np.linalg.norm(query_embedding)
@@ -104,13 +141,14 @@ class PersistentEmbeddingDatabase:
         if query_embedding.shape[0] != self.dimension:
             raise ValueError(f"Query embedding dimension {query_embedding.shape[0]} does not match index dimension {self.dimension}")
         
-        self.index.hnsw.efSearch = config['ef_search']
+        self.index.hnsw.efSearch = config.get('ef_search', 50)
         scores, indices = self.index.search(query_embedding.reshape(1, -1), k)
         
         results = []
         for i, idx in enumerate(indices[0]):
-            score = float(scores[0][i])
-            results.append((self.documents[idx], score))
+            document_embedding = self.index.reconstruct(int(idx))
+            similarity = float(calculate_cosine_similarity(query_embedding, document_embedding))
+            results.append((self.documents[idx], similarity))
         
         return sorted(results, key=lambda x: x[1], reverse=True)
 
@@ -131,10 +169,10 @@ class PersistentEmbeddingDatabase:
         }
 
 db = PersistentEmbeddingDatabase(
-    model_name=config['model_name'],
-    embedding_model_name=config['embedding_model_name'],
-    index_file=config['index_file'],
-    docs_file=config['docs_file']
+    model_name=config.get('model_name'),
+    embedding_model_name=config.get('embedding_model_name'),
+    index_file=config.get('index_file'),
+    docs_file=config.get('docs_file')
 )
 
 def load_document(file_path: str) -> List[str]:
@@ -185,12 +223,12 @@ def load_csv_document(file_path: str) -> List[str]:
         row_content = "\n".join([f"{column}: {value}" for column, value in record.items()])
         processed_content.append(row_content)
 
-    return split_text("\n\n".join(processed_content))
+    return split_text("\n\n".join(processed_content), chunk_size=config.get('chunk_size', 2000))
 
-def split_text(text: str) -> List[str]:
+def split_text(text: str, chunk_size: int = config.get('chunk_size', 2000)) -> List[str]:
     splitter = RecursiveCharacterTextSplitter(
-        chunk_size=config['chunk_size'],
-        chunk_overlap=config['chunk_overlap'],
+        chunk_size=chunk_size,
+        chunk_overlap=config.get('chunk_overlap', 200),
         length_function=len,
         separators=["\n\n", "\n", ". ", ", ", " ", ""]
     )
@@ -201,9 +239,6 @@ def split_text(text: str) -> List[str]:
     logger.info(f"Largest chunk size: {max(len(chunk) for chunk in chunks)} characters")
     
     return chunks
-
-def calculate_cosine_similarity(vec1: np.ndarray, vec2: np.ndarray) -> float:
-    return np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2))
 
 class Query(BaseModel):
     query: str
@@ -228,14 +263,20 @@ async def index_document(file: UploadFile = File(...)):
 @app.post("/query")
 async def query_document(query: Query):
     try:
-        results = db.search(query.query, k=config['search_k'])
+        results = db.search(query.query, k=config.get('search_k', 30))  # Increased from 20 to 30
         
         if not results:
             return {"message": "No relevant documents found."}
 
-        context = "\n\n".join([doc for doc, _ in results])
-        
-        prompt = f"""Use the following pieces of context to answer the question at the end. If you cannot answer the question based on the context, say "I don't have enough information to answer that question."
+        max_context_length = config.get('max_context_length', 8000)  # Increased from 4000 to 8000
+        context = ""
+        for doc, score in results:
+            if len(context) + len(doc) + 2 <= max_context_length:
+                context += doc + "\n\n"
+            else:
+                break
+
+        prompt = f"""Use the following pieces of context to answer the question at the end. If you cannot answer the question based on the context, say "I don't have enough information to answer that question." Provide an extremely detailed, comprehensive, and long answer. Include as much relevant information as possible.
 
         Context:
         {context}
@@ -243,28 +284,34 @@ async def query_document(query: Query):
         Question: {query.query}
         Answer:"""
 
-        response = ollama.chat(model=config['model_name'], messages=[
-            {
-                'role': 'system',
-                'content': 'You are a helpful assistant that answers questions based solely on the provided context. Do not use any external knowledge.'
-            },
-            {
-                'role': 'user',
-                'content': prompt
+        response = ollama.chat(
+            model=config.get('model_name'),
+            messages=[
+                {
+                    'role': 'system',
+                    'content': 'You are a helpful assistant that answers questions based solely on the provided context. Do not use any external knowledge. Provide extremely detailed, comprehensive, and long answers. Include as much relevant information as possible.'
+                },
+                {
+                    'role': 'user',
+                    'content': prompt
+                }
+            ],
+            options={
+                "num_predict": config.get('max_response_tokens', 4096),  # Increased from 1024 to 4096
             }
-        ])
+        )
 
         generated_answer = response['message']['content']
         
         result = {
             "generated_answer": generated_answer,
-            "relevant_documents": [{"content": doc, "score": score} for doc, score in results]
+            "relevant_documents": [{"content": doc[:1000] + "..." if len(doc) > 1000 else doc, "score": float(score)} for doc, score in results]  # Increased preview length
         }
 
         if query.original_answer:
             original_embedding = np.array(ollama.embeddings(model=db.embedding_model_name, prompt=query.original_answer)['embedding'])
             generated_embedding = np.array(ollama.embeddings(model=db.embedding_model_name, prompt=generated_answer)['embedding'])
-            similarity_score = calculate_cosine_similarity(original_embedding, generated_embedding)
+            similarity_score = float(calculate_cosine_similarity(original_embedding, generated_embedding))
             result["similarity_score"] = similarity_score
         
         return result
@@ -287,7 +334,7 @@ async def health_check():
 
 @app.get("/config")
 async def get_config():
-    return config
+    return config.config
 
 @app.get("/indexed_documents")
 async def get_indexed_documents():

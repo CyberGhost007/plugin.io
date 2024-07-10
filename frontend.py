@@ -4,8 +4,13 @@ import json
 import pandas as pd
 import plotly.express as px
 import os
+from dotenv import load_dotenv
 
-API_URL = "http://localhost:8000"
+# Load environment variables
+load_dotenv()
+
+# Set API URL based on environment
+API_URL = os.getenv('API_URL', 'http://localhost:8000')
 
 def query_backend(endpoint, method="GET", data=None, files=None):
     url = f"{API_URL}/{endpoint}"
@@ -66,7 +71,10 @@ def home_page():
 
     st.markdown("### How It Works")
     image_path = os.path.join("assets", "arc.png")
-    st.image(image_path, caption="FloatStream.io Workflow", use_column_width=True)
+    if os.path.exists(image_path):
+        st.image(image_path, caption="FloatStream.io Workflow", use_column_width=True)
+    else:
+        st.warning("Workflow image not found. Please add an image to the 'assets' folder.")
 
 def upload_page():
     st.header("Upload Documents")
@@ -140,6 +148,15 @@ def manage_page():
         st.write(f"Total documents: {stats['total_documents']}")
         st.write(f"Total embeddings: {stats['total_embeddings']}")
         st.write(f"Average embeddings per document: {stats['avg_embeddings_per_doc']:.2f}")
+
+    # Visualize embedding statistics
+    if stats:
+        fig = px.bar(
+            x=["Total Documents", "Total Embeddings"],
+            y=[stats['total_documents'], stats['total_embeddings']],
+            labels={"x": "Metric", "y": "Count"}
+        )
+        st.plotly_chart(fig)
 
 if __name__ == "__main__":
     main()

@@ -108,8 +108,15 @@ faiss-cpu
 ollama
 PyPDF2
 python-multipart
+chardet
+pandas
+plotly
 streamlit
+streamlit-mermaid
 requests
+python-dotenv
+sqlparse
+rank_bm25
 EOL
     echo "requirements.txt created."
 fi
@@ -130,8 +137,8 @@ if [ ! -f "config.json" ]; then
     "embedding_model_name": "mxbai-embed-large",
     "chunk_size": 1000,
     "chunk_overlap": 100,
-    "search_k": 5,
-    "ef_search": 50,
+    "search_k": 20,
+    "ef_search": 100,
     "index_file": "faiss_hnsw_index.bin",
     "docs_file": "documents.pkl"
 }

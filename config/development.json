@@ -1,0 +1,10 @@
+{
+    "model_name": "qwen2",
+    "embedding_model_name": "mxbai-embed-large",
+    "chunk_size": 2000,
+    "chunk_overlap": 200,
+    "search_k": 20,
+    "ef_search": 100,
+    "index_file": "faiss_hnsw_index_dev.bin",
+    "docs_file": "documents_dev.pkl"
+}

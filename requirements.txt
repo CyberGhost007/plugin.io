@@ -13,3 +13,8 @@ plotly
 streamlit
 streamlit-mermaid
 requests
+python-dotenv
+sqlparse
+rank_bm25
+docx
+spacy
