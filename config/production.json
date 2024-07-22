@@ -3,7 +3,7 @@
     "embedding_model_name": "mxbai-embed-large",
     "chunk_size": 2000,
     "chunk_overlap": 200,
-    "search_k": 30,
+    "search_k": 5,
     "ef_search": 150,
     "index_file": "faiss_hnsw_index_prod.bin",
     "docs_file": "documents_prod.pkl"

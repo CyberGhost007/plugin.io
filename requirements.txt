@@ -18,3 +18,7 @@ sqlparse
 rank_bm25
 docx
 spacy
+streamlit-chat
+marker-pdf
+pypdf
+hydralit_components

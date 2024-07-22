@@ -117,6 +117,7 @@ requests
 python-dotenv
 sqlparse
 rank_bm25
+marker-pdf
 EOL
     echo "requirements.txt created."
 fi
@@ -126,7 +127,10 @@ echo "Installing Python dependencies..."
 pip install -r requirements.txt
 
 # Create necessary directories
+echo "Creating necessary directories..."
 mkdir -p data
+mkdir -p assets
+mkdir -p assets_md
 
 # Check if config.json exists, if not, create a sample one
 if [ ! -f "config.json" ]; then
@@ -154,6 +158,10 @@ cp config.json data/config.json
 echo "Downloading the Ollama model (this may take a while)..."
 ollama pull qwen2
 ollama pull mxbai-embed-large
+
+# Convert PDFs to markdown using marker
+echo "Converting PDFs to markdown..."
+marker assets assets_md --workers 10 --max 10 --min_length 10000
 
 # Check if app.py exists
 if [ ! -f "app.py" ]; then
@@ -196,7 +204,7 @@ fi
 
 # Run the FastAPI backend
 echo "Starting the FastAPI backend..."
-python3 app.py &
+ASSETS_MD_PATH=$(pwd)/assets_md python3 app.py &
 BACKEND_PID=$!
 
 # Wait for the backend to start

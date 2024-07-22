@@ -1,9 +1,9 @@
 {
-    "model_name": "qwen2",
-    "embedding_model_name": "mxbai-embed-large",
+    "model_name": "internlm2",
+    "embedding_model_name": "rjmalagon/gte-qwen2-1.5b-instruct-embed-f16",
     "chunk_size": 2000,
     "chunk_overlap": 200,
-    "search_k": 20,
+    "search_k": 5,
     "ef_search": 100,
     "index_file": "faiss_hnsw_index_dev.bin",
     "docs_file": "documents_dev.pkl"

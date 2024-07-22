@@ -13,6 +13,7 @@ from PyPDF2 import PdfReader
 import chardet
 import pandas as pd
 import json
+import math
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -263,12 +264,12 @@ async def index_document(file: UploadFile = File(...)):
 @app.post("/query")
 async def query_document(query: Query):
     try:
-        results = db.search(query.query, k=config.get('search_k', 30))  # Increased from 20 to 30
+        results = db.search(query.query, k=config.get('search_k', 30))
         
         if not results:
             return {"message": "No relevant documents found."}
 
-        max_context_length = config.get('max_context_length', 8000)  # Increased from 4000 to 8000
+        max_context_length = config.get('max_context_length', 8000)
         context = ""
         for doc, score in results:
             if len(context) + len(doc) + 2 <= max_context_length:
@@ -297,7 +298,7 @@ async def query_document(query: Query):
                 }
             ],
             options={
-                "num_predict": config.get('max_response_tokens', 4096),  # Increased from 1024 to 4096
+                "num_predict": config.get('max_response_tokens', 4096),
             }
         )
 
@@ -305,14 +306,14 @@ async def query_document(query: Query):
         
         result = {
             "generated_answer": generated_answer,
-            "relevant_documents": [{"content": doc[:1000] + "..." if len(doc) > 1000 else doc, "score": float(score)} for doc, score in results]  # Increased preview length
+            "relevant_documents": [{"content": doc[:1000] + "..." if len(doc) > 1000 else doc, "score": float(score) if not math.isnan(score) else None} for doc, score in results]
         }
 
         if query.original_answer:
             original_embedding = np.array(ollama.embeddings(model=db.embedding_model_name, prompt=query.original_answer)['embedding'])
             generated_embedding = np.array(ollama.embeddings(model=db.embedding_model_name, prompt=generated_answer)['embedding'])
             similarity_score = float(calculate_cosine_similarity(original_embedding, generated_embedding))
-            result["similarity_score"] = similarity_score
+            result["similarity_score"] = similarity_score if not math.isnan(similarity_score) else None
         
         return result
     except Exception as e:

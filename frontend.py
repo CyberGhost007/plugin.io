@@ -5,6 +5,8 @@ import pandas as pd
 import plotly.express as px
 import os
 from dotenv import load_dotenv
+from streamlit_chat import message
+import time
 
 # Load environment variables
 load_dotenv()
@@ -33,17 +35,21 @@ def query_backend(endpoint, method="GET", data=None, files=None):
 
 def main():
     st.set_page_config(page_title="FloatStream.io", layout="wide", page_icon="⛵")
-    st.title("⛵ FloatStream.io")
 
     pages = {
         "Home": home_page,
         "Upload Documents": upload_page,
-        "Query Documents": query_page,
+        "Chat": improved_chat_page,
+        "Retrival Scores": query_page,
         "Manage Embeddings": manage_page
     }
 
     st.sidebar.title("Navigation")
     page = st.sidebar.radio("Go to", list(pages.keys()))
+
+    # Conditionally display the title
+    if page != "Chat":
+        st.title("⛵ FloatStream.io")
 
     pages[page]()
 
@@ -76,6 +82,96 @@ def home_page():
     else:
         st.warning("Workflow image not found. Please add an image to the 'assets' folder.")
 
+def chat_page():
+    # st.header("Chat with AI")
+
+    # Initialize chat history
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+
+    # Display chat messages from history on app rerun
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+
+    # React to user input
+    if prompt := st.chat_input("What is up?"):
+        # Display user message in chat message container
+        st.chat_message("user").markdown(prompt)
+        # Add user message to chat history
+        st.session_state.messages.append({"role": "user", "content": prompt})
+
+        # Create a placeholder for the AI's response
+        with st.chat_message("assistant"):
+            message_placeholder = st.empty()
+            full_response = ""
+            
+            # Simulate stream of response with a loading indicator
+            with st.spinner("FloatStream is thinking..."):
+                response = query_backend("query", method="POST", data={"query": prompt})
+                full_response = response.get("generated_answer", "I'm sorry, I couldn't generate an answer.")
+
+            # Add the full response to the message placeholder
+            message_placeholder.markdown(full_response)
+        
+        # Add assistant response to chat history
+        st.session_state.messages.append({"role": "assistant", "content": full_response})
+
+    st.caption("FloatStream can make mistakes. Please verify important information.")
+
+def improved_chat_page():
+    # st.header("Chat with ⛵ FloatStream.io")
+
+    # Initialize chat history
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+
+    # Display chat messages from history on app rerun
+    for i, msg in enumerate(st.session_state.messages):
+        message(msg["content"], is_user=msg["role"] == "user", key=str(i))
+
+    # Check if chat is empty
+    if not st.session_state.messages:
+        # st.info("Please enter your question below to start the conversation.")
+        st.info("""
+        **How to use FloatStream Chat:**
+        1. Type your question or query in the input box below and press Enter.
+        2. FloatStream will process your query and provide an answer based on the indexed documents.
+        3. You can view relevant source documents by expanding the "View Relevant Documents" section after each response.
+        """)
+    else:
+        # Add a button to clear the chat history
+        if st.button("Clear Chat History"):
+            st.session_state.messages = []
+            st.experimental_rerun()
+
+    # React to user input
+    if prompt := st.chat_input("What would you like to know?"):
+        # Add user message to chat history
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        message(prompt, is_user=True)
+
+        with st.spinner("FloatStream is thinking..."):
+            response = query_backend("query", method="POST", data={"query": prompt})
+            if response and "generated_answer" in response:
+                ai_response = response["generated_answer"]
+            else:
+                ai_response = "I'm sorry, I couldn't generate an answer at this time."
+
+        # Display assistant response in chat message container
+        st.session_state.messages.append({"role": "assistant", "content": ai_response})
+        message(ai_response)
+
+        # Display relevant documents
+        if response and "relevant_documents" in response:
+            with st.expander("View Relevant Documents"):
+                for i, doc in enumerate(response["relevant_documents"]):
+                    st.markdown(f"**Document {i+1}** (Score: {doc['score']:.4f})")
+                    st.write(doc['content'])
+
+        # Rerun the app to show the clear button after the first message
+        st.experimental_rerun()
+
 def upload_page():
     st.header("Upload Documents")
     st.markdown("Upload one or more documents to be indexed and embedded.")
@@ -97,8 +193,7 @@ def upload_page():
             st.success("All documents have been processed!")
 
 def query_page():
-    st.header("Query Documents")
-    st.markdown("Enter a query to search the indexed documents.")
+    st.markdown("Verifying the accuracy of Retrieval-Augmented Generation (RAG)")
 
     query_text = st.text_area("Enter your query:")
     original_answer = st.text_area("Optional: Provide your original answer for similarity comparison")
