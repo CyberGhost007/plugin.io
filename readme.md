@@ -1,40 +1,43 @@
-# FloatStream.io
 
-FloatStream.io is a document management and querying system that uses vector embeddings for efficient similarity search.
+# FloatStream.ai
+
+FloatStream.ai is a document management and querying system that uses vector embeddings for efficient similarity search.
+
+## Steps to run the app
+1. source ./venv/bin/activate
+2. chmod +x setup_and_run.sh 
+3. ./setup_and_run.sh
 
 ## Setup
 
-1. Clone the repository:
-   ```
-   git clone https://github.com/yourusername/floatstream-io.git
-   cd floatstream-io
-   ```
-
-2. Create a virtual environment and activate it:
+1. Create a virtual environment and activate it:
    ```
    python -m venv venv
    source venv/bin/activate  # On Windows, use `venv\Scripts\activate`
+
+   # Or
+
+   source ./venv/bin/activate
    ```
 
 3. Install the required packages:
    ```
    pip install -r requirements.txt
+
+   # Or
+
+   chmod +x setup_and_run.sh 
+   ./setup_and_run.sh
    ```
 
 4. Set up the configuration:
    - The `config` directory contains JSON files for different environments.
    - Set the `ENVIRONMENT` variable in the `.env` file to switch between configurations.
 
-## Running the Application
-
-1. Start the FastAPI server:
-   ```
-   uvicorn app:app --reload
-   ```
 
 2. The API will be available at `http://localhost:8000`
 
-3. You can access the API documentation at `http://localhost:8000/docs`
+3. You can access the Front-end at ` http://localhost:8080`
 
 ## Usage
 
@@ -51,11 +54,3 @@ You can modify the `config/development.json` and `config/production.json` files 
 - Chunk sizes
 - Search parameters
 - File paths
-
-## Contributing
-
-Please read CONTRIBUTING.md for details on our code of conduct, and the process for submitting pull requests.
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE.md file for details.
