@@ -27,12 +27,14 @@ class Config:
         self.load_config()
 
     def load_config(self):
-        env = os.getenv('ENVIRONMENT', 'development')
+        env = os.getenv('ENVIRONMENT', 'production')
+        logger.info(f"Loading configuration for environment: {env}")
         config_file = f'{self.config_path}/{env}.json'
         
         try:
             with open(config_file, 'r') as f:
                 self.config = json.load(f)
+                logger.info(f"Configuration loaded from {config_file}")
         except FileNotFoundError:
             logger.warning(f"Configuration file not found: {config_file}. Using default configuration.")
             self.config = self.default_config()
@@ -41,6 +43,7 @@ class Config:
             self.config = self.default_config()
 
     def default_config(self):
+        logger.info("Loading default configuration.")
         return {
             "model_name": "qwen2",
             "embedding_model_name": "mxbai-embed-large",
@@ -266,16 +269,19 @@ async def query_document(query: Query):
     try:
         results = db.search(query.query, k=config.get('search_k', 30))
         
-        if not results:
-            return {"message": "No relevant documents found."}
+        if not results or all(score < 0.4 for _, score in results):
+            return {"message": "I don't have enough information to answer that question."}
 
         max_context_length = config.get('max_context_length', 8000)
         context = ""
         for doc, score in results:
-            if len(context) + len(doc) + 2 <= max_context_length:
+            if score >= 0.4 and len(context) + len(doc) + 2 <= max_context_length:
                 context += doc + "\n\n"
             else:
                 break
+
+        if not context:
+            return {"message": "I don't have enough information to answer that question."}
 
         prompt = f"""Use the following pieces of context to answer the question at the end. If you cannot answer the question based on the context, say "I don't have enough information to answer that question." Provide an extremely detailed, comprehensive, and long answer. Include as much relevant information as possible.
 
