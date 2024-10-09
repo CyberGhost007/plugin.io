@@ -1,0 +1,76 @@
+{
+    "choices": [
+        {
+            "content_filter_results": {
+                "hate": {
+                    "filtered": false,
+                    "severity": "safe"
+                },
+                "protected_material_code": {
+                    "filtered": false,
+                    "detected": false
+                },
+                "protected_material_text": {
+                    "filtered": false,
+                    "detected": false
+                },
+                "self_harm": {
+                    "filtered": false,
+                    "severity": "safe"
+                },
+                "sexual": {
+                    "filtered": false,
+                    "severity": "safe"
+                },
+                "violence": {
+                    "filtered": false,
+                    "severity": "safe"
+                }
+            },
+            "finish_reason": "stop",
+            "index": 0,
+            "logprobs": null,
+            "message": {
+                "content": "{\n  \"config\": {\n    \"shortSummaryPoints\": 4,\n    \"shortSummaryWords\": 250,\n    \"recommendedQuestions\": 5,\n    \"quizQuestions\": {\n      \"mcq\": 2,\n      \"fillBlanks\": 2\n    }\n  },\n  \"subtopics\": [\n    {\n      \"title\": \"Primary Trauma Response\",\n      \"shortSummary\": {\n        \"title\": \"Primary Trauma Response\",\n        \"shortSummaryImage\": \"![331_image_1.png](331_image_1.png)\",\n        \"key_points\": [\n          \"Severe trauma triggers both local and systemic reactions, including the release of adrenocorticosteroids and catecholamines, which increase heart and respiration rates [3.1, Primary Response To Severe Trauma].\",\n          \"The metabolic rate decreases to conserve energy, while the renin-angiotensin system is activated to maintain blood pressure [3.1, Primary Response To Severe Trauma].\",\n          \"The primary clinical goals are to stop hemorrhage, prevent hypoxia and hypercarbia, and avoid hypothermia to prevent secondary damage [3.1, Primary Response To Severe Trauma].\",\n          \"Proinflammatory and anti-inflammatory mediators regulate cellular and vascular responses, with IL-6 levels serving as markers for immune alterations [3.1, Primary Response To Severe Trauma].\"\n        ],\n        \"word_count\": \"250\"\n      },\n      \"recommendedQuestions\": [\n        \"What triggers systemic reactions in trauma?\",\n        \"How does the body conserve energy after trauma?\",\n        \"What are the primary clinical goals post-trauma?\",\n        \"What role do IL-6 levels play in trauma?\",\n        \"How is blood pressure maintained after severe trauma?\"\n      ],\n      \"quiz\": {\n        \"mcq\": [\n          {\n            \"questionText\": \"What is the first clinical priority following severe trauma? [3.1, Primary Response To Severe Trauma]\",\n            \"options\": [\n              \"Administering pain relief\",\n              \"Stopping hemorrhage\",\n              \"Starting antibiotics\",\n              \"Immobilizing fractures\"\n            ],\n            \"correctAnswer\": \"B\",\n            \"correctExplanation\": \"The first clinical priority is to stop hemorrhage to prevent further complications such as hypoxia and hypercarbia, which can lead to acidosis [3.1, Primary Response To Severe Trauma].\",\n            \"incorrectFeedback\": \"Administering pain relief, starting antibiotics, and immobilizing fractures are important but secondary to stopping hemorrhage [3.1, Primary Response To Severe Trauma].\"\n          }\n        ],\n        \"fillBlanks\": [\n          {\n            \"questionText\": \"The release of ______ and catecholamines increases heart and respiration rates after severe trauma [3.1, Primary Response To Severe Trauma]\",\n            \"options\": [\n              \"adrenocorticosteroids\",\n              \"insulin\",\n              \"glucagon\",\n              \"thyroxine\"\n            ],\n            \"correctAnswer\": \"A\",\n            \"correctExplanation\": \"Adrenocorticosteroids and catecholamines are released by the neuroendocrine system, increasing heart and respiration rates following trauma [3.1, Primary Response To Severe Trauma].\",\n            \"incorrectFeedback\": \"Insulin, glucagon, and thyroxine do not play a primary role in increasing heart and respiration rates post-trauma [3.1, Primary Response To Severe Trauma].\"\n          }\n        ]\n      }\n    },\n    {\n      \"title\": \"Trauma-Induced Coagulopathy\",\n      \"shortSummary\": {\n        \"title\": \"Trauma-Induced Coagulopathy\",\n        \"shortSummaryImage\": \"![331_image_2.png](331_image_2.png)\",\n        \"key_points\": [\n          \"Coagulopathy can develop early after severe trauma due to factors like hypovolemic shock and damage to vascular endothelium [3.2, Coagulopathy Of Trauma].\",\n          \"The 'lethal triad' of coagulopathy, acidosis, and hypothermia is associated with increased mortality [3.2, Coagulopathy Of Trauma].\",\n          \"Resuscitation with high volumes of crystalloids can contribute to defective coagulation [3.2, Coagulopathy Of Trauma].\",\n          \"Early recognition and treatment of trauma-induced coagulopathy are essential for successful resuscitation [3.2, Coagulopathy Of Trauma].\"\n        ],\n        \"word_count\": \"250\"\n      },\n      \"recommendedQuestions\": [\n        \"What factors contribute to trauma-induced coagulopathy?\",\n        \"What is the 'lethal triad'?\",\n        \"How does high-volume crystalloid resuscitation affect coagulation?\",\n        \"Why is early recognition of coagulopathy important?\",\n        \"What happens to vascular endothelium during trauma?\"\n      ],\n      \"quiz\": {\n        \"mcq\": [\n          {\n            \"questionText\": \"Which of the following is NOT part of the 'lethal triad'? [3.2, Coagulopathy Of Trauma]\",\n            \"options\": [\n              \"Coagulopathy\",\n              \"Acidosis\",\n              \"Hypothermia\",\n              \"Hyperglycemia\"\n            ],\n            \"correctAnswer\": \"D\",\n            \"correctExplanation\": \"Hyperglycemia is not part of the 'lethal triad'; the triad consists of coagulopathy, acidosis, and hypothermia [3.2, Coagulopathy Of Trauma].\",\n            \"incorrectFeedback\": \"Coagulopathy, acidosis, and hypothermia are all part of the 'lethal triad' associated with increased mortality [3.2, Coagulopathy Of Trauma].\"\n          }\n        ],\n        \"fillBlanks\": [\n          {\n            \"questionText\": \"Trauma-induced coagulopathy is often accompanied by ______ and hypothermia [3.2, Coagulopathy Of Trauma]\",\n            \"options\": [\n              \"acidosis\",\n              \"alkalosis\",\n              \"hyperglycemia\",\n              \"hypoglycemia\"\n            ],\n            \"correctAnswer\": \"A\",\n            \"correctExplanation\": \"Acidosis, along with coagulopathy and hypothermia, forms the 'lethal triad' associated with increased mortality [3.2, Coagulopathy Of Trauma].\",\n            \"incorrectFeedback\": \"Alkalosis, hyperglycemia, and hypoglycemia are not part of the 'lethal triad' [3.2, Coagulopathy Of Trauma].\"\n          }\n        ]\n      }\n    },\n    {\n      \"title\": \"Surgical Response: The Second Hit\",\n      \"shortSummary\": {\n        \"title\": \"Surgical Response: The Second Hit\",\n        \"shortSummaryImage\": \"![331_image_0.png](331_image_0.png)\",\n        \"key_points\": [\n          \"The 'second hit' refers to the activation of immune responses during surgical interventions after initial trauma [3.3, Response To Surgery: The Second Hit].\",\n          \"Early, prolonged surgical interventions can increase the risk of complications like ARDS and MODS [3.3, Response To Surgery: The Second Hit].\",\n          \"Damage-control surgery (DCS) is a strategy to minimize the risk of complications by carefully timing and planning surgical interventions [3.3, Response To Surgery: The Second Hit].\",\n          \"IL-6 levels can be used to assess the presence of SIRS and guide treatment decisions [3.3, Response To Surgery: The Second Hit].\"\n        ],\n        \"word_count\": \"250\"\n      },\n      \"recommendedQuestions\": [\n        \"What is the 'second hit' in trauma care?\",\n        \"How can early surgical interventions affect trauma outcomes?\",\n        \"What is damage-control surgery?\",\n        \"How are IL-6 levels used in trauma management?\",\n        \"What complications can arise from the 'second hit'?\"\n      ],\n      \"quiz\": {\n        \"mcq\": [\n          {\n            \"questionText\": \"What is the main goal of damage-control surgery (DCS)? [3.3, Response To Surgery: The Second Hit]\",\n            \"options\": [\n              \"Reducing pain\",\n              \"Minimizing risk of complications\",\n              \"Increasing surgical efficiency\",\n              \"Shortening hospital stays\"\n            ],\n            \"correctAnswer\": \"B\",\n            \"correctExplanation\": \"Damage-control surgery aims to minimize the risk of complications by carefully timing and planning surgical interventions [3.3, Response To Surgery: The Second Hit].\",\n            \"incorrectFeedback\": \"Reducing pain, increasing surgical efficiency, and shortening hospital stays are secondary to minimizing the risk of complications [3.3, Response To Surgery: The Second Hit].\"\n          }\n        ],\n        \"fillBlanks\": [\n          {\n            \"questionText\": \"The 'second hit' refers to immune activation during ______ after initial trauma [3.3, Response To Surgery: The Second Hit]\",\n            \"options\": [\n              \"surgical interventions\",\n              \"physical therapy\",\n              \"radiological exams\",\n              \"medication administration\"\n            ],\n            \"correctAnswer\": \"A\",\n            \"correctExplanation\": \"The 'second hit' involves immune responses triggered by surgical interventions following the initial trauma [3.3, Response To Surgery: The Second Hit].\",\n            \"incorrectFeedback\": \"Physical therapy, radiological exams, and medication administration do not primarily constitute the 'second hit' [3.3, Response To Surgery: The Second Hit].\"\n          }\n        ]\n      }\n    }\n  ]\n}",
+                "role": "assistant"
+            }
+        }
+    ],
+    "created": 1728375618,
+    "id": "chatcmpl-AFzk2ZhHY9DTPYVUYJZxXEglkwZ2d",
+    "model": "gpt-4o-2024-05-13",
+    "object": "chat.completion",
+    "prompt_filter_results": [
+        {
+            "prompt_index": 0,
+            "content_filter_results": {
+                "hate": {
+                    "filtered": false,
+                    "severity": "safe"
+                },
+                "jailbreak": {
+                    "filtered": false,
+                    "detected": false
+                },
+                "self_harm": {
+                    "filtered": false,
+                    "severity": "safe"
+                },
+                "sexual": {
+                    "filtered": false,
+                    "severity": "safe"
+                },
+                "violence": {
+                    "filtered": false,
+                    "severity": "safe"
+                }
+            }
+        }
+    ],
+    "system_fingerprint": "fp_67802d9a6d",
+    "usage": {
+        "completion_tokens": 1948,
+        "prompt_tokens": 3017,
+        "total_tokens": 4965
+    }
+}

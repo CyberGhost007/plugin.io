@@ -1,6 +1,6 @@
 {
-    "model_name": "qwen2",
-    "embedding_model_name": "mxbai-embed-large",
+    "model_name": "qwen2.5:7b",
+    "embedding_model_name": "bge-m3",
     "chunk_size": 2000,
     "chunk_overlap": 200,
     "search_k": 5,

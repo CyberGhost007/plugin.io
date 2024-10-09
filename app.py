@@ -75,13 +75,18 @@ app.add_middleware(
 def calculate_cosine_similarity(vec1: np.ndarray, vec2: np.ndarray) -> float:
     return float(np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2)))
 
+# Update the PersistentEmbeddingDatabase to handle additional metadata
+class DocumentData(BaseModel):
+    content: str
+    metadata: Optional[Dict[str, Any]] = {}
+
 class PersistentEmbeddingDatabase:
     def __init__(self, model_name: str, embedding_model_name: str, index_file: str, docs_file: str):
         self.model_name = model_name
         self.embedding_model_name = embedding_model_name
         self.index_file = os.path.join('data', index_file)
         self.docs_file = os.path.join('data', docs_file)
-        self.documents = []
+        self.documents: List[DocumentData] = []
         self.index = None
         self.dimension = None
         self.load_or_create_index()
@@ -117,9 +122,10 @@ class PersistentEmbeddingDatabase:
         else:
             logger.warning("No index to save")
 
-    def add_documents(self, documents: List[str]):
+    def add_documents(self, documents: List[DocumentData]):
         all_embeddings = []
-        for doc in documents:
+        for doc_data in documents:
+            doc = doc_data.content
             embedding_response = ollama.embeddings(model=self.embedding_model_name, prompt=doc)
             embedding = np.array(embedding_response['embedding']).astype('float32')
             embedding = embedding / np.linalg.norm(embedding)
@@ -152,7 +158,8 @@ class PersistentEmbeddingDatabase:
         for i, idx in enumerate(indices[0]):
             document_embedding = self.index.reconstruct(int(idx))
             similarity = float(calculate_cosine_similarity(query_embedding, document_embedding))
-            results.append((self.documents[idx], similarity))
+            doc_data = self.documents[idx]
+            results.append((doc_data, similarity))
         
         return sorted(results, key=lambda x: x[1], reverse=True)
 
@@ -248,6 +255,172 @@ class Query(BaseModel):
     query: str
     original_answer: Optional[str] = None
 
+# Existing API endpoints remain unchanged...
+
+# New Feature: Content Upload and Analysis API
+class DocumentData(BaseModel):
+    content: str
+    metadata: Optional[Dict[str, Any]] = {}
+
+@app.post("/upload-content")
+async def upload_content(document: DocumentData):
+    try:
+        # Analyze the content
+        analysis_results = analyze_content(document.content)
+        document.metadata.update(analysis_results)
+
+        # Split the content into chunks
+        chunks = split_text(document.content)
+
+        # Wrap chunks into DocumentData instances with metadata
+        document_chunks = [DocumentData(content=chunk, metadata=document.metadata) for chunk in chunks]
+
+        # Add documents to the embedding database
+        db.add_documents(document_chunks)
+
+        return {"message": "Content uploaded and analyzed successfully."}
+    except Exception as e:
+        logger.exception("An error occurred during content upload")
+        raise HTTPException(status_code=500, detail=str(e))
+
+def analyze_content(text: str) -> Dict[str, Any]:
+    # Use Ollama's chat function to analyze content
+    prompt = f"Analyze the following marketing content for tone, style, and themes:\n\n{text}\n\nProvide the analysis in JSON format with keys 'tone', 'style', and 'themes'."
+    response = ollama.chat(
+        model=config.get('model_name'),
+        messages=[
+            {'role': 'user', 'content': prompt}
+        ],
+        options={"num_predict": 150}
+    )
+    analysis_text = response['message']['content'].strip()
+    try:
+        analysis = json.loads(analysis_text)
+    except json.JSONDecodeError:
+        analysis = {"analysis_text": analysis_text}  # Fallback if JSON parsing fails
+    return analysis
+
+# New Feature: Content Generation API
+class GenerationRequest(BaseModel):
+    goals: Optional[str] = None
+    tone: Optional[str] = None
+    style: Optional[str] = None
+    themes: Optional[List[str]] = None
+
+@app.post("/generate-content")
+async def generate_content(request: GenerationRequest):
+    try:
+        # Retrieve historical content analysis
+        historical_analyses = [doc.metadata.get('analysis_text', '') for doc in db.documents if 'analysis_text' in doc.metadata]
+
+        # Construct the prompt
+        prompt = create_generation_prompt(request, historical_analyses)
+
+        # Generate content using existing LLM (Ollama)
+        response = ollama.chat(
+            model=config.get('model_name'),
+            messages=[
+                {'role': 'user', 'content': prompt}
+            ],
+            options={"num_predict": 250}
+        )
+        generated_content = response['message']['content'].strip()
+
+        return {"generated_content": generated_content}
+    except Exception as e:
+        logger.exception("An error occurred during content generation")
+        raise HTTPException(status_code=500, detail=str(e))
+
+def create_generation_prompt(request: GenerationRequest, historical_analyses: List[str]) -> str:
+    historical_summary = "\n".join(historical_analyses[:5])  # Use the first 5 analyses
+    prompt = f"""Based on the following historical marketing content analyses:
+
+{historical_summary}
+
+Generate new marketing content that aligns with the brand's voice and style. The content should:
+
+- Goals: {request.goals or 'Not specified'}
+- Tone: {request.tone or 'Not specified'}
+- Style: {request.style or 'Not specified'}
+- Themes: {', '.join(request.themes) if request.themes else 'Not specified'}
+
+Provide the generated content below:
+"""
+    return prompt
+
+# New Feature: Content Ranking API
+class RankingRequest(BaseModel):
+    content: str
+    metrics: Optional[Dict[str, float]] = None  # Metric weights
+
+@app.post("/rank-content")
+async def rank_content(request: RankingRequest):
+    try:
+        # Generate embedding for the content to be ranked
+        content_embedding = generate_embedding(request.content)
+
+        # Compare with historical embeddings
+        similarities = []
+        for idx, doc in enumerate(db.documents):
+            doc_embedding = db.index.reconstruct(idx)
+            similarity = float(calculate_cosine_similarity(content_embedding, doc_embedding))
+            similarities.append(similarity)
+
+        # Calculate average similarity as a relevance score
+        average_similarity = sum(similarities) / len(similarities) if similarities else 0
+
+        # Calculate final score based on provided metrics
+        score = calculate_content_score(average_similarity, request.metrics)
+
+        return {"score": score}
+    except Exception as e:
+        logger.exception("An error occurred during content ranking")
+        raise HTTPException(status_code=500, detail=str(e))
+
+def generate_embedding(text: str) -> np.ndarray:
+    embedding_response = ollama.embeddings(model=db.embedding_model_name, prompt=text)
+    embedding = np.array(embedding_response['embedding']).astype('float32')
+    embedding = embedding / np.linalg.norm(embedding)
+    return embedding
+
+def calculate_content_score(similarity: float, metrics: Optional[Dict[str, float]]) -> float:
+    # Define default weights
+    default_metrics = {'relevance': 1.0}
+    if metrics:
+        default_metrics.update(metrics)
+
+    # Calculate score (example using only relevance)
+    score = similarity * default_metrics['relevance']
+    return score
+
+# New Feature: Feedback API
+class Feedback(BaseModel):
+    content_id: str
+    feedback_type: str  # e.g., 'like', 'dislike'
+    comments: Optional[str] = None
+
+@app.post("/feedback")
+async def submit_feedback(feedback: Feedback):
+    try:
+        # Store feedback (you might need to implement a storage mechanism)
+        feedback_data = {
+            'content_id': feedback.content_id,
+            'feedback_type': feedback.feedback_type,
+            'comments': feedback.comments
+        }
+        # Example: Append to a list or save to a file/database
+        feedback_file = os.path.join('data', 'feedback.jsonl')
+        with open(feedback_file, 'a') as f:
+            json.dump(feedback_data, f)
+            f.write('\n')
+
+        return {"message": "Feedback submitted successfully."}
+    except Exception as e:
+        logger.exception("An error occurred during feedback submission")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Existing API endpoints continue...
+
 @app.post("/index")
 async def index_document(file: UploadFile = File(...)):
     try:
@@ -257,7 +430,9 @@ async def index_document(file: UploadFile = File(...)):
             f.write(contents)
         
         chunks = load_document(file_path)
-        db.add_documents(chunks)
+        # Wrap chunks into DocumentData instances without metadata
+        document_chunks = [DocumentData(content=chunk) for chunk in chunks]
+        db.add_documents(document_chunks)
         os.remove(file_path)
         return {"message": f"Successfully indexed document: {file.filename}"}
     except Exception as e:
@@ -274,7 +449,8 @@ async def query_document(query: Query):
 
         max_context_length = config.get('max_context_length', 8000)
         context = ""
-        for doc, score in results:
+        for doc_data, score in results:
+            doc = doc_data.content
             if score >= 0.4 and len(context) + len(doc) + 2 <= max_context_length:
                 context += doc + "\n\n"
             else:
@@ -285,11 +461,11 @@ async def query_document(query: Query):
 
         prompt = f"""Use the following pieces of context to answer the question at the end. If you cannot answer the question based on the context, say "I don't have enough information to answer that question." Provide an extremely detailed, comprehensive, and long answer. Include as much relevant information as possible.
 
-        Context:
-        {context}
+Context:
+{context}
 
-        Question: {query.query}
-        Answer:"""
+Question: {query.query}
+Answer:"""
 
         response = ollama.chat(
             model=config.get('model_name'),
@@ -312,12 +488,12 @@ async def query_document(query: Query):
         
         result = {
             "generated_answer": generated_answer,
-            "relevant_documents": [{"content": doc[:1000] + "..." if len(doc) > 1000 else doc, "score": float(score) if not math.isnan(score) else None} for doc, score in results]
+            "relevant_documents": [{"content": doc_data.content[:1000] + "..." if len(doc_data.content) > 1000 else doc_data.content, "score": float(score) if not math.isnan(score) else None} for doc_data, score in results]
         }
 
         if query.original_answer:
-            original_embedding = np.array(ollama.embeddings(model=db.embedding_model_name, prompt=query.original_answer)['embedding'])
-            generated_embedding = np.array(ollama.embeddings(model=db.embedding_model_name, prompt=generated_answer)['embedding'])
+            original_embedding = generate_embedding(query.original_answer)
+            generated_embedding = generate_embedding(generated_answer)
             similarity_score = float(calculate_cosine_similarity(original_embedding, generated_embedding))
             result["similarity_score"] = similarity_score if not math.isnan(similarity_score) else None
         
@@ -345,7 +521,7 @@ async def get_config():
 
 @app.get("/indexed_documents")
 async def get_indexed_documents():
-    return {"documents": [doc[:100] + "..." if len(doc) > 100 else doc for doc in db.documents]}
+    return {"documents": [doc.content[:100] + "..." if len(doc.content) > 100 else doc.content for doc in db.documents]}
 
 @app.get("/embedding_stats")
 async def get_embedding_stats():
